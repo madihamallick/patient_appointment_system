@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { IoLogOutOutline } from "react-icons/io5";
 import { useNavigate, useParams } from "react-router-dom";
+import ErrorComponent from "../../Components/ErrorComponent";
 
 const AddAppointment = () => {
   const navigate = useNavigate();
@@ -10,29 +11,49 @@ const AddAppointment = () => {
     date: "",
     note: "",
   });
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    const checkIfPastDate = () => {
+      const inputDate = new Date(formData.date);
+      const currentDate = new Date();
+      return inputDate < currentDate;
+    };
+    setErrorMessage(
+      checkIfPastDate() ? "The selected date is in the past." : ""
+    );
+  }, [formData.date]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (errorMessage) {
+      setFormData({ ...formData, date: "" });
+      return;
+    }
+
     const appointmentDateObj = new Date(formData.date);
 
     const payload = {
-        appointment_date: Math.floor(appointmentDateObj.getTime() / 1000),
-        price: 0,
-        note: formData.note,
-        payment_status: false,
-        user_id: localStorage.getItem("user_id"),
-        patient_id: params.id,
+      appointment_date: Math.floor(appointmentDateObj.getTime() / 1000),
+      price: 0,
+      note: formData.note,
+      payment_status: false,
+      user_id: localStorage.getItem("user_id"),
+      patient_id: params.id,
     };
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_FAST_API}/appointments/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        `${process.env.REACT_APP_FAST_API}/appointments/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to register user");
@@ -43,6 +64,7 @@ const AddAppointment = () => {
       console.error(error.message);
     }
   };
+
   return (
     <div>
       <div
@@ -54,17 +76,18 @@ const AddAppointment = () => {
         }}
       >
         <span className="pt-1 pr-3">{localStorage.getItem("user")}</span>
-        <IoLogOutOutline className="text-3xl " />
+        <IoLogOutOutline className="text-3xl" />
       </div>
-      <h1 class="text-2xl xl:text-3xl font-extrabold text-center  md:pt-28 pt-10">
+      <h1 className="text-2xl xl:text-3xl font-extrabold text-center md:pt-28 pt-10">
         Add Appointment
       </h1>
 
-      <div class="w-full flex-1 mt-8">
-        <div class="mx-auto max-w-md">
+      <div className="w-full flex-1 mt-8">
+        <div className="mx-auto max-w-md">
           <form onSubmit={handleSubmit}>
+            {errorMessage && <ErrorComponent message={errorMessage} />}
             <input
-              class="w-full px-8 py-4 my-3 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
+              className="w-full px-8 py-4 my-3 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
               type="datetime-local"
               placeholder="Appointment Date"
               value={formData.date}
@@ -73,7 +96,7 @@ const AddAppointment = () => {
               }
             />
             <input
-              class="w-full px-8 py-4 my-3 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
+              className="w-full px-8 py-4 my-3 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
               type="note"
               placeholder="note"
               value={formData.note}
@@ -83,24 +106,23 @@ const AddAppointment = () => {
             />
             <button
               type="submit"
-              class="mt-5 tracking-wide font-semibold bg-blue-500 text-gray-100 w-full py-4 rounded-lg hover:bg-blue-700 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none"
+              className="mt-5 tracking-wide font-semibold bg-blue-500 text-gray-100 w-full py-4 rounded-lg hover:bg-blue-700 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
-                stroke-width="1.5"
+                strokeWidth="1.5"
                 stroke="currentColor"
-                class="w-6 h-6"
+                className="w-6 h-6"
               >
                 <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                   d="M17.25 8.25 21 12m0 0-3.75 3.75M21 12H3"
                 />
               </svg>
-
-              <span class="ml-3">Add Appointment</span>
+              <span className="ml-3">Add Appointment</span>
             </button>
           </form>
         </div>

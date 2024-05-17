@@ -137,10 +137,15 @@ def create_patient(patient: PostPatientBase, db:  Session = Depends(get_db)):
 def create_appointment(appointment: PostAppointmentBase, db:  Session = Depends(get_db)):
     db_appointment = models.Appointment(**appointment.dict())
 
+    db.add(db_appointment)
+    db.commit()
+    db.refresh(db_appointment)
+
     try:
+        redirect_url = f"http://localhost:3000/paymentdone/{db_appointment.id}"
         charge = stripe.PaymentLink.create(
             line_items=[{"price": 'price_1PGhUzSCn8hXCgcZUxmFWCdo', "quantity": 1}],
-            after_completion={"type": "redirect", "redirect": {"url": "https://example.com"}},
+            after_completion={"type": "redirect", "redirect": {"url": redirect_url}},
         )
         db_appointment.payment_link = charge['url']
 
@@ -241,12 +246,17 @@ def delete_user(user_id: int, db:  Session = Depends(get_db)):
 
 
 @app.delete("/patients/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_patient(patient_id: int, db:  Session = Depends(get_db)):
-    db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id)
-    if db_patient.first() is None:
+def delete_patient(patient_id: int, db: Session = Depends(get_db)):
+    db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
+
+    if db_patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
-    db_patient.delete(synchronize_session=False)
+
+    for appointment in db_patient.appointments:
+        db.delete(appointment)
+    db.delete(db_patient)
     db.commit()
+    return {"detail": f"Patient with ID {patient_id} and their appointments have been deleted."}
 
 
 @app.delete("/appointments/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -285,3 +295,21 @@ def get_patients(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.patch("/appointments/{appointment_id}/complete")
+def complete_appointment(appointment_id: int, db: Session = Depends(get_db)):
+    db_appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
+    if db_appointment is None:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    db_appointment.appointment_status = "complete"
+    db.commit()
+    return model_to_dict(db_appointment)
+
+
+@app.patch("/appointments/{appointment_id}/payment")
+def mark_payment(appointment_id: int, db: Session = Depends(get_db)):
+    db_appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
+    if db_appointment is None:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    db_appointment.payment_status = True
+    db.commit()
+    return model_to_dict(db_appointment)

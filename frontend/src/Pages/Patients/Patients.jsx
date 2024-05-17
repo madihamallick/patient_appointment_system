@@ -5,6 +5,7 @@ import { IoLogOutOutline } from "react-icons/io5";
 const Patients = () => {
   const navigate = useNavigate();
   const [patients, setPatients] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     if (!localStorage.getItem("user")) {
@@ -16,6 +17,40 @@ const Patients = () => {
       .then((data) => setPatients(data))
       .catch((error) => console.error("Error:", error));
   }, [navigate]);
+
+  useEffect(() => {
+    fetch(
+      `${
+        process.env.REACT_APP_FAST_API
+      }/patients/search/?search_term=${encodeURIComponent(searchTerm)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    )
+      .then((response) => response.json())
+      .then((data) => setPatients(data))
+      .catch((error) => console.error("Error:", error));
+  }, [searchTerm]);
+
+  const handleDeletePatient = (patientId) => {
+    fetch(`${process.env.REACT_APP_FAST_API}/patients/${patientId}`, {
+      method: "DELETE",
+    })
+      .then((response) => {
+        if (response.ok) {
+          alert("Patient deleted successfully");
+          window.location.reload();
+        } else {
+          throw new Error("Failed to delete patient");
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+      });
+  };
 
   return (
     <div className="bg-gray-100 min-h-screen">
@@ -78,6 +113,8 @@ const Patients = () => {
               type="search"
               name="search"
               placeholder="Search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
             <button type="submit" class="absolute right-0 top-0 mt-5 mr-4">
               <svg
@@ -140,6 +177,7 @@ const Patients = () => {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {patients &&
+                patients.length > 0 &&
                 patients.map((_, index) => (
                   <tr key={index}>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -193,12 +231,12 @@ const Patients = () => {
                       </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <a
-                        href="/"
+                      <button
                         className="ml-2 text-red-600 hover:text-red-900"
+                        onClick={() => handleDeletePatient(_.id)}
                       >
                         Delete
-                      </a>
+                      </button>
                     </td>
                   </tr>
                 ))}
