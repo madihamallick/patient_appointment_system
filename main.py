@@ -1,12 +1,13 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from pydantic import BaseModel
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Dict, Any
 import models
 from database import engine, SessionLocal
 from sqlalchemy.orm import Session, joinedload
 from fastapi.middleware.cors import CORSMiddleware
 import datetime
 import stripe
+from sqlalchemy import func
 
 app = FastAPI()
 
@@ -17,6 +18,9 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 models.Base.metadata.create_all(bind=engine)
@@ -24,7 +28,7 @@ models.Base.metadata.create_all(bind=engine)
 stripe.api_key = "sk_test_51Lcu5QSCn8hXCgcZIgjde51Vmgexkk3XbTKu482mjoelMOW7xM6qoua6mKAOaQvJAe3yTq8k9GElS5GzfFWH1L8z00TVuojh4a"
 
 
-class UserBase(BaseModel):
+class PostUserBase(BaseModel):
     name: str
     email: str
     password: str
@@ -33,7 +37,12 @@ class UserBase(BaseModel):
     google_id: Optional[str] = None
     github_id: Optional[str] = None
 
-class PatientBase(BaseModel):
+
+class UserBase(PostUserBase):
+    id: Optional[int] = None
+
+
+class PostPatientBase(BaseModel):
     name: str
     email: str
     mobile: Optional[str] = None
@@ -41,7 +50,23 @@ class PatientBase(BaseModel):
     problem: Optional[str] = None
     user_id: int
 
-class AppointmentBase(BaseModel):
+
+class PatientBase(PostPatientBase):
+    id: Optional[int] = None
+
+
+class PatientWithAppointments(BaseModel):
+    id: Optional[int] = None
+    name: str
+    email: str
+    mobile: Optional[str] = None
+    username: Optional[str] = None
+    problem: Optional[str] = None
+    user_id: int
+    total_appointments: int
+
+
+class PostAppointmentBase(BaseModel):
     appointment_date: datetime.date
     price: int
     payment_status: bool
@@ -49,6 +74,10 @@ class AppointmentBase(BaseModel):
     note: Optional[str] = None
     patient_id: int
     user_id: int
+
+
+class AppointmentBase(PostAppointmentBase):
+    id: Optional[int] = None
 
 
 def get_db():
@@ -65,8 +94,10 @@ def search_patients(search_term: str, db:  Session = Depends(get_db)):
 def model_to_dict(instance):
     return {column.name: getattr(instance, column.name) for column in instance.__table__.columns}
 
+
+# signup user
 @app.post("/users/", status_code=status.HTTP_201_CREATED)
-def create_user(user: UserBase, db:  Session = Depends(get_db)):
+def create_user(user: PostUserBase, db:  Session = Depends(get_db)):
     db_user = models.User(**user.dict())
     db.add(db_user)
     db.commit()
@@ -74,8 +105,27 @@ def create_user(user: UserBase, db:  Session = Depends(get_db)):
     return model_to_dict(db_user)
 
 
+# signin user
+@app.post("/users/signin", response_model=UserBase)
+def signin(email: str, password: str, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if user.password!= password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return model_to_dict(user)
+
+
 @app.post("/patients/", status_code=status.HTTP_201_CREATED)
-def create_patient(patient: PatientBase, db:  Session = Depends(get_db)):
+def create_patient(patient: PostPatientBase, db:  Session = Depends(get_db)):
     db_patient = models.Patient(**patient.dict())
     db.add(db_patient)
     db.commit()
@@ -84,7 +134,7 @@ def create_patient(patient: PatientBase, db:  Session = Depends(get_db)):
 
 
 @app.post("/appointments/", status_code=status.HTTP_201_CREATED)
-def create_appointment(appointment: AppointmentBase, db:  Session = Depends(get_db)):
+def create_appointment(appointment: PostAppointmentBase, db:  Session = Depends(get_db)):
     db_appointment = models.Appointment(**appointment.dict())
 
     try:
@@ -108,6 +158,7 @@ def read_users(db:  Session = Depends(get_db)):
     users = db.query(models.User).all()
     return [model_to_dict(user) for user in users]
 
+
 @app.get("/users/{user_id}", response_model=UserBase)
 def read_user(user_id: int, db:  Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
@@ -116,10 +167,25 @@ def read_user(user_id: int, db:  Session = Depends(get_db)):
     return model_to_dict(db_user)
 
 
-@app.get("/patients/", response_model=list[PatientBase])
-def read_patients(db:  Session = Depends(get_db)):
-    patients = db.query(models.Patient).all()
-    return [model_to_dict(patient) for patient in patients]
+@app.get("/patients/", response_model=list[PatientWithAppointments])
+def read_patients(db: Session = Depends(get_db)):
+    patients_with_appointments = db.query(
+        models.Patient,
+        func.count(models.Appointment.patient_id).label("total_appointments")
+    ).outerjoin(
+        models.Appointment,
+        models.Patient.id == models.Appointment.patient_id
+    ).group_by(
+        models.Patient.id
+    ).all()
+
+    patients = []
+    for patient, total_appointments in patients_with_appointments:
+        patient_data = model_to_dict(patient)
+        patient_data["total_appointments"] = total_appointments
+        patients.append(patient_data)
+
+    return patients
 
 
 @app.get("/patients/{patient_id}", response_model=PatientBase)
@@ -130,12 +196,17 @@ def read_patient(patient_id: int, db:  Session = Depends(get_db)):
     return model_to_dict(db_patient)
 
 
-@app.get("/patients/{patient_id}/details", response_model=PatientBase)
-def read_patient_details(patient_id: int, db:  Session = Depends(get_db)):
+@app.get("/patients/{patient_id}/details", response_model=Dict[str, Any])
+def read_patient_details(patient_id: int, db: Session = Depends(get_db)):
     db_patient = db.query(models.Patient).options(joinedload(models.Patient.appointments)).get(patient_id)
     if db_patient is None:
         raise HTTPException(status_code=404, detail="Patient not found")
-    return model_to_dict(db_patient)
+
+    patient_details = model_to_dict(db_patient)
+    appointments = [model_to_dict(appointment) for appointment in db_patient.appointments]
+    patient_details["appointments"] = appointments
+
+    return patient_details
 
 
 @app.post("/patients/search/", response_model=list[PatientBase])
