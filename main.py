@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, APIRouter, Request
 from pydantic import BaseModel
 from typing import Annotated, Optional, Dict, Any
 import models
@@ -8,8 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 import datetime
 import stripe
 from sqlalchemy import func
+from fastapi.responses import JSONResponse, RedirectResponse
+import requests
+import os
 
 app = FastAPI()
+router = APIRouter()
 
 origins = [
     "http://localhost:3000",
@@ -86,6 +90,41 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+@router.get("/auth/google")
+async def login(request: Request):
+    url = f"https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id={os.getenv('GOOGLE_CLIENT_ID')}&redirect_uri=http://localhost:8000/callback&scope=email%20profile&access_type=offline"
+    return RedirectResponse(url=url)
+
+@router.get("/callback")
+async def oauth_callback(code: str, db: Session = Depends(get_db)):
+    token_url = "https://oauth2.googleapis.com/token"
+    payload = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+        "redirect_uri": "http://localhost:8000/callback"
+    }
+    response = requests.post(token_url, data=payload)
+    tokens = response.json()
+    access_token = tokens["access_token"]
+
+    user_info_url = "https://www.googleapis.com/oauth2/v1/userinfo?alt=json"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    user_info_response = requests.get(user_info_url, headers=headers)
+    user_info = user_info_response.json()
+
+    user = db.query(models.User).filter(models.User.google_id == user_info['id']).first()
+    if user:
+        return JSONResponse(content={"message": "Signed in successfully"})
+    else:
+        new_user = models.User(**user_info)
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return JSONResponse(content={"message": "Signed up successfully"})
 
 
 def search_patients(search_term: str, db:  Session = Depends(get_db)):
