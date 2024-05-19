@@ -71,7 +71,7 @@ class PatientWithAppointments(BaseModel):
 
 
 class PostAppointmentBase(BaseModel):
-    appointment_date: datetime.date
+    appointment_date: str
     price: int
     payment_status: bool
     payment_link: Optional[str] = None

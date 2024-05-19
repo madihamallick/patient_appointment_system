@@ -30,7 +30,7 @@ class Patient(Base):
 class Appointment(Base):
     __tablename__ = "appointments"
     id = Column(Integer, primary_key=True, index=True,autoincrement=True)
-    appointment_date = Column(DateTime, nullable=False)
+    appointment_date = Column(String(256), nullable=False)
     price = Column(Float, nullable=False)
     payment_status = Column(String(50), default="false")
     appointment_status = Column(String(50), default="created")

@@ -32,10 +32,8 @@ const AddAppointment = () => {
       return;
     }
 
-    const appointmentDateObj = new Date(formData.date);
-
     const payload = {
-      appointment_date: Math.floor(appointmentDateObj.getTime() / 1000),
+      appointment_date: formData.date,
       price: 0,
       note: formData.note,
       payment_status: false,
