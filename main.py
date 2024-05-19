@@ -17,6 +17,7 @@ router = APIRouter()
 
 origins = [
     "http://localhost:3000",
+    "https://13.49.145.104"
 ]
 
 app.add_middleware(
