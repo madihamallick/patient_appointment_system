@@ -17,7 +17,8 @@ router = APIRouter()
 
 origins = [
     "http://localhost:3000",
-    "https://13.49.145.104"
+    "https://patient-appointment-system.vercel.app",
+    "https://patientappointmentsystem.xyz"
 ]
 
 app.add_middleware(
