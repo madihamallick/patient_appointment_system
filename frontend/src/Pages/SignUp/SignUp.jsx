@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -127,13 +127,13 @@ const SignUp = () => {
                 </form>
               </div>
 
-              <div class="my-12 border-b text-center">
+              {/* <div class="my-12 border-b text-center">
                 <div class="leading-none px-2 inline-block text-sm text-gray-600 tracking-wide font-medium bg-white transform translate-y-1/2">
                   Or sign Up with Google
                 </div>
-              </div>
+              </div> */}
 
-              <div class="flex flex-col items-center">
+              <div class="flex flex-col items-center mt-10">
                 <button class="w-full max-w-xs font-bold shadow-sm rounded-lg py-3 bg-green-100 text-gray-800 flex items-center justify-center transition-all duration-300 ease-in-out focus:outline-none hover:shadow focus:shadow-sm focus:shadow-outline">
                   <div class="bg-white p-2 rounded-full">
                     <svg class="w-4" viewBox="0 0 533.5 544.3">
@@ -157,6 +157,7 @@ const SignUp = () => {
                   </div>
                   <span class="ml-4">Sign Up with Google</span>
                 </button>
+                <Link to="/signin"> <div class="my-10 font-semibold text-xs text-gray-500 text-center">Don't have an account? Sign In</div></Link>
               </div>
             </div>
           </div>

@@ -80,6 +80,10 @@ const Patient = () => {
               {new Date(appointment.appointment_date).toLocaleDateString()}
             </p>
             <p>
+              <strong>Problem Note:</strong>{" "}
+              {appointment.note}
+            </p>
+            <p>
               <strong>Price:</strong> ₹1000
             </p>
             <p>

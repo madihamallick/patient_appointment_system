@@ -22,6 +22,7 @@ const CreatePatient = () => {
       password: formData.password,
       mobile: formData.mobile,
       username: formData.username,
+      problem: formData.problem,
       user_id: localStorage.getItem("user_id"),
     };
 
