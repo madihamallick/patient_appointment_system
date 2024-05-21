@@ -27,4 +27,4 @@ npm start
 
 ### Deployed LINK  🔗
 
-https://patient-appointment-system.vercel.app/
+https://patientappointmentsystem.xyz/
